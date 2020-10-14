@@ -5,6 +5,7 @@ from flask_cors import CORS
 import random
 
 from models import setup_db, Question, Category
+import random
 
 QUESTIONS_PER_PAGE = 10
 
@@ -19,10 +20,10 @@ def paginate_questions(request, selection):
 
     return current_questions
 
+
 def dictionraize_categories():
     categories = Category.query.all()
     return {category.id: category.type for category in categories}
-
 
 
 def create_app(test_config=None):
@@ -100,6 +101,7 @@ def create_app(test_config=None):
   TEST: When you click the trash icon next to a question, the question will be removed.
   This removal will persist in the database and when you refresh the page. 
   '''
+
     @app.route('/questions/<int:id>', methods=['DELETE'])
     def delete_question(id):
         try:
@@ -115,7 +117,7 @@ def create_app(test_config=None):
 
         except:
             abort(422)
-    
+
     '''
   @TODO: 
   Create an endpoint to POST a new question, 
@@ -189,8 +191,6 @@ def create_app(test_config=None):
         except:
             abort(422)
 
-
-
     '''
   @TODO: 
   Create a GET endpoint to get questions based on category. 
@@ -199,6 +199,23 @@ def create_app(test_config=None):
   categories in the left column will cause only questions of that 
   category to be shown. 
   '''
+
+    @app.route('/categories/<int:id>/questions', methods=['GET'])
+    def get_category_questions(id):
+        category = Category.query.filter_by(id=id).one_or_none()
+        # doing type casting of Category id below because of type differences
+        questions_of_category = Question.query.filter_by(category=str(id)).all()
+        current_questions = paginate_questions(request, questions_of_category)
+
+        if current_questions is None:
+            abort(404)
+
+        return jsonify({
+            'success': True,
+            'questions': current_questions,
+            'totalQuestions': len(questions_of_category),
+            'currentCategory': category.type
+        })
 
     '''
   @TODO: 
@@ -212,6 +229,36 @@ def create_app(test_config=None):
   and shown whether they were correct or not. 
   '''
 
+    @app.route('/quizzes', methods=['POST'])
+    def play_quiz():
+        try:
+            body = request.get_json()
+            previous_question_ids = body.get('previous_questions')
+            selected_quiz_category = body.get('quiz_category')
+
+            # using 'notin_' to eliminate previous questions from query,
+            # cred ==> https://stackoverflow.com/questions/26182027/how-to-use-not-in-clause-in-sqlalchemy-orm-query
+            if selected_quiz_category['id'] == 0:
+                questions_of_category = Question.query.filter(Question.id.notin_(previous_question_ids)).all()
+            else:
+                questions_of_category = Question.query.filter(Question.id.notin_(previous_question_ids)) \
+                    .filter_by(category=selected_quiz_category['id']).all()
+
+            if questions_of_category is None:
+                abort(404)
+
+            question = random.choice(questions_of_category)
+
+            return jsonify({
+                'success': True,
+                'question': question.format()
+            })
+
+        except:
+            abort(422)
+
+        # new_question = body.get('question', None)
+
     '''
   @TODO: 
   Create error handlers for all expected errors 
@@ -223,7 +270,31 @@ def create_app(test_config=None):
         return jsonify({
             "success": False,
             "error": 422,
-            "message": "unprocessable"
+            "message": "Unable To Process"
         }), 422
+
+    @app.errorhandler(404)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 404,
+            "message": "Not Found"
+        }), 404
+
+    @app.errorhandler(400)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 400,
+            "message": "Bad Request"
+        }), 400
+
+    @app.errorhandler(500)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 500,
+            "message": "Internal Server Error"
+        }), 500
 
     return app
