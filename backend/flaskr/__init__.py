@@ -213,6 +213,10 @@ def create_app(test_config=None):
     @app.route('/categories/<int:id>/questions', methods=['GET'])
     def get_category_questions(id):
         category = Category.query.filter_by(id=id).one_or_none()
+
+        if category is None:
+            abort(404)
+
         # doing type casting of Category id below because of type differences
         questions_of_category = Question.query.filter_by(category=str(id)).all()
         current_questions = paginate_questions(request, questions_of_category)
