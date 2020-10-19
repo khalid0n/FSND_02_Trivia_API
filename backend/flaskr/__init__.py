@@ -311,4 +311,12 @@ def create_app(test_config=None):
             "message": "Internal Server Error"
         }), 500
 
+    @app.errorhandler(405)
+    def unprocessable(error):
+        return jsonify({
+            "success": False,
+            "error": 405,
+            "message": "Method Not Allowed"
+        }), 405
+
     return app
